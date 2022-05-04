@@ -12,6 +12,11 @@ description: |
 
 
 confinement: strict
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+  - build-on: armhf
+
 adopt-info: g-build
 apps:
   mobile:
