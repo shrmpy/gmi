@@ -28,7 +28,7 @@ parts:
 
     override-pull: |
         snapcraftctl pull
-        version="$(git describe --tags --long)"
+        version="$(git describe --all)"
         snapcraftctl set-version "$version"
         snapcraftctl set-grade stable
 
