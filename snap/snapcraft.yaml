@@ -1,0 +1,37 @@
+name: gmird
+base: core20
+summary: Gemini reader snap
+description: |
+  This is a Gemini reader made in Go. Ultimately, my goal is to deploy the mobile
+  app to my Android phone mainly because the app I tried from the Play store
+  seemed to immediately trigger some text messages from telemarketers. Since the
+  Gemini protocol was designed to encourage simple implementations, it seemed
+  friendly enough. I also want to keep parity with the terminal program and be
+  able to run that inside a remote SSH connection.
+  See https://github.com/shrmpy/gmi.git
+
+
+confinement: strict
+adopt-info: g-build
+apps:
+  mobile:
+    command: bin/mobile
+    plugs: [network]
+  term:
+    command: bin/term
+    plugs: [network]
+
+parts:
+  g-build:
+    source: https://github.com/shrmpy/gmi.git
+    plugin: go
+
+    override-pull: |
+        snapcraftctl pull
+        version="$(git describe --tags --long)"
+        snapcraftctl set-version "$version"
+        snapcraftctl set-grade stable
+
+ 
+  
+

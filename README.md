@@ -26,6 +26,9 @@ exit
 ```
 
 ## Credits
+Font Renderer
+ by [tinne26](https://github.com/tinne26/etxt) ([LICENSE](https://github.com/tinne26/etxt/blob/main/LICENSE))
+
 TLS Config
  by [Dave Cheney](https://dave.cheney.net/2010/10/05/how-to-dial-remote-ssltls-services-in-go)
 
