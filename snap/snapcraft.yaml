@@ -17,26 +17,49 @@ architectures:
   - build-on: arm64
   - build-on: armhf
 
-adopt-info: g-build
+version: "0.0.6"
+grade: stable
 apps:
   mobile:
-    command: bin/mobile
-    plugs: [network]
+    command: bin/desktop-launch $SNAP/bin/mobile
+    plugs: [network,x11,unity7,opengl]
+
   term:
     command: bin/term
     plugs: [network]
 
 parts:
   g-build:
-    source: https://github.com/shrmpy/gmi.git
     plugin: go
+    source: .
+    build-packages: 
+    - git
+    - libc6-dev
+    - libglu1-mesa-dev
+    - libgl1-mesa-dev
+    - libxcursor-dev
+    - libxi-dev
+    - libxinerama-dev
+    - libxrandr-dev
+    - libxxf86vm-dev
+    - libasound2-dev
+    - pkg-config
+    stage-packages: 
+    - libgl1-mesa-glx
+    - libxcursor1
+    - libxi6
+    - libxinerama1
+    - libxrandr2
+    - libxxf86vm1
+    after: 
+    - desktop-glib-only
 
-    override-pull: |
-        snapcraftctl pull
-        version="$(git describe --all)"
-        snapcraftctl set-version "$version"
-        snapcraftctl set-grade stable
-
- 
-  
+  desktop-glib-only:
+    source: https://github.com/ubuntu/snapcraft-desktop-helpers.git
+    source-subdir: glib-only
+    plugin: make
+    build-packages:
+      - libglib2.0-dev
+    stage-packages:
+      - libglib2.0-bin
 
