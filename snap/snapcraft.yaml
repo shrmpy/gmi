@@ -17,8 +17,10 @@ architectures:
   - build-on: arm64
   - build-on: armhf
 
+
 version: "0.0.6"
 grade: stable
+
 apps:
   mobile:
     command: bin/desktop-launch $SNAP/bin/mobile
@@ -62,4 +64,5 @@ parts:
       - libglib2.0-dev
     stage-packages:
       - libglib2.0-bin
+
 
