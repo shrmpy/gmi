@@ -16,10 +16,11 @@ import "github.com/tinne26/etxt"
 //go:embed NotoSansMono-Regular.ttf
 var notoSansMonoTTF []byte
 
-//go:embed NotoEmoji-Regular.ttf
-var notoEmojiTTF []byte
+//go:embed DejaVuSansMono.ttf
+var dejavuSansMonoTTF []byte
 
-const monospaceFont = "Noto Sans Mono Regular"
+////const monospaceFont = "Noto Sans Mono Regular"
+const monospaceFont = "DejaVu Sans Mono"
 const pxht = 18
 
 // text page widget
@@ -65,6 +66,7 @@ func (p *Panel) drawLines(screen *ebiten.Image) {
 	// is the drawing buffer for performance?
 	var buf = p.buffer()
 	p.txtRenderer.SetTarget(buf)
+	defer p.txtRenderer.SetTarget(screen)
 
 	var lineHt = pxht
 	var x = 0
@@ -84,7 +86,7 @@ func (p *Panel) drawLines(screen *ebiten.Image) {
 		} // below viewport
 		line.Draw(p.txtRenderer, x, y)
 	}
-	p.txtRenderer.SetTarget(screen)
+
 	var op = &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(x), float64(lineHt))
 	screen.DrawImage(buf, op)
@@ -93,7 +95,7 @@ func (p *Panel) gemActions() {
 	if !inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		return
 	}
-	x, y := ebiten.CursorPosition()
+	var x, y = ebiten.CursorPosition()
 	if 1 > x || x >= p.scroll.X ||
 		pxht > y || y >= p.ht-20 {
 		return
@@ -223,7 +225,7 @@ func newPanel(wd, ht int) *Panel {
 		log.Fatal(err)
 	}
 	log.Printf("+ font %s", name)
-	name, err = fonts.ParseFontBytes(notoEmojiTTF)
+	name, err = fonts.ParseFontBytes(dejavuSansMonoTTF)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -354,27 +356,28 @@ func newIcon(x, y int, va etxt.VertAlign, ha etxt.HorzAlign,
 	}
 }
 func (i *Icon) Update() {
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		//todo align v/h affects the rect size orientation
-		var (
-			minx = i.x
-			miny = i.y
-			maxx = i.x + i.rectSize.WidthCeil()
-			maxy = i.y + i.rectSize.HeightCeil()
-		)
-		x, y := ebiten.CursorPosition()
-		if minx <= x && x < maxx && miny <= y && y < maxy {
-			// calc cursor lands in box
-			i.mouseDown = true
-		} else {
-			i.mouseDown = false
+	var click = ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+	if !click {
+		if i.mouseDown {
+			i.Action()
 		}
+		i.mouseDown = false
 		return
 	}
-	if i.mouseDown {
-		i.Action()
+	//todo align v/h affects the rect size orientation
+	var (
+		minx = i.x
+		miny = i.y
+		maxx = i.x + i.rectSize.WidthCeil()
+		maxy = i.y + i.rectSize.HeightCeil()
+	)
+	var x, y = ebiten.CursorPosition()
+	if minx <= x && x < maxx && miny <= y && y < maxy {
+		// calc cursor lands in box
+		i.mouseDown = true
+	} else {
+		i.mouseDown = false
 	}
-	i.mouseDown = false
 }
 func (i *Icon) Draw(renderer *etxt.Renderer) {
 	renderer.SetAlign(i.va, i.ha)

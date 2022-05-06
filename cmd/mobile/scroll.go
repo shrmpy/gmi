@@ -89,8 +89,8 @@ func (v *Scroll) Update(contentHeight int) {
 	v.thumbRate = float64(v.Height) / float64(contentHeight)
 
 	if !v.dragging && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		x, y := ebiten.CursorPosition()
-		tr := v.thumbRect()
+		var x, y = ebiten.CursorPosition()
+		var tr = v.thumbRect()
 		if tr.Min.X <= x && x < tr.Max.X && tr.Min.Y <= y && y < tr.Max.Y {
 			v.dragging = true
 			v.draggingStartOffset = v.thumbOffset
