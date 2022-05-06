@@ -31,20 +31,21 @@ func (g *Game) geminiPod(addr string) {
 	defer ctrl.Close()
 	// beginning page change, temporarily postpone its drawing
 	g.panel.Skip()
+	defer g.panel.Resume()
 	// fetch gemini content (and trigger rules)
 	_, err = ctrl.Retrieve(rdr)
 	if err != nil {
 		g.panel.AppendParagraph(1,
 			"DEBUG retrv error "+err.Error())
+		return
 	}
 	g.panel.bar.text = []rune(req.String())
-	g.panel.Resume()
 }
 
 // define how to treat Gem links
-func (g *Game) rewriteLink(n gmi.Node) string {
+func (g *Game) rewriteLink(no gmi.Node) string {
 	var (
-		lnk  = n.(*gmi.LinkNode)
+		lnk  = no.(*gmi.LinkNode)
 		seq  = lnk.Position()
 		lu   = lnk.URL.String()
 		name = lnk.Friendly
@@ -62,12 +63,12 @@ func (g *Game) rewriteLink(n gmi.Node) string {
 }
 
 // define how to treat Gem plain text
-func (g *Game) rewritePlain(n gmi.Node) string {
+func (g *Game) rewritePlain(no gmi.Node) string {
 	var (
-		tn  = n.(*gmi.TextNode)
+		tn  = no.(*gmi.TextNode)
 		seq = tn.Position()
 	)
 
-	g.panel.AppendParagraph(int(seq), n.String())
+	g.panel.AppendParagraph(int(seq), no.String())
 	return ""
 }

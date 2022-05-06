@@ -24,6 +24,31 @@ cp test /opt/test/testmo
 exit
 ./testmo
 ```
+## Make your own snap package
+[![gmird](https://snapcraft.io/gmird/badge.svg)](https://snapcraft.io/gmird)
+```bash
+# ub server includes a empty lxd?
+sudo snap remove --purge lxd
+# reinstall lxd
+sudo snap install lxd
+sudo lxd init --auto
+sudo usermod -a -G lxd ${USER}
+# view config
+lxc version
+lxc profile show default
+lxc storage show default
+echo 'export SNAPCRAFT_BUILD_ENVIRONMENT=lxd' >> ~/.profile
+sudo reboot
+# retrieve YAML 
+git clone https://gitlab.com/shrmpy/gmi.git
+cd gmi
+# make snap 
+snapcraft
+# local install
+sudo snap install gmird_0.0.7_arm64.snap --dangerous
+# start reader
+gmird.mobile
+```
 
 ## Credits
 Font Renderer
