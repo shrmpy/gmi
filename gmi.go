@@ -5,7 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
+	//"io"
 	"io/ioutil"
 	"net/url"
 	"strconv"
@@ -15,15 +15,11 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	CA_ROOTS         = "/etc/ssl/certs/ca-certificates.crt"
-	CONNECTION_OPEN  = 100
-	CONNECTION_CLOSE = 110
-)
+////const CA_ROOTS         = "/etc/ssl/certs/ca-certificates.crt"
 
 type control struct {
 	conn  *tls.Conn
-	state int
+	state Transition
 	rules safemap
 	g     *errgroup.Group
 	ctx   context.Context
@@ -41,45 +37,47 @@ type rewriter struct {
 func Format(raw string, referer string) (*url.URL, error) {
 	//TODO make unit tests to prove we follow
 	//     https://gemini.circumlunar.space/docs/specification.gmi
-	var err error
-	// standard port is 1965
-	var rfr = &url.URL{Scheme: "gemini", Host: ":1965"}
+	var (
+		err error
+		lu  *url.URL
+		tmp = raw
+		rfr = &url.URL{Scheme: "gemini", Host: ":1965"}
+	)
 	if strings.HasPrefix(referer, "gemini://") {
 		if rfr, err = url.Parse(referer); err != nil {
 			return &url.URL{}, err
 		}
 	}
-	var tmp = raw
 	// b) no scheme, no host, relative path (causes empty scheme/host result)
 	//    (are dot paths allowed in links?)
 	if strings.HasPrefix(raw, "/") {
 		tmp = fmt.Sprintf("gemini://%s%s", rfr.Host, raw)
 	} else if foundAt := strings.Index(raw, ":/"); foundAt == -1 {
 		// a) no scheme, host without port (causes empty Parse result)
-		tmp = "gemini://" + raw
+		tmp = fmt.Sprintf("gemini://%s", raw)
 	}
 
-	u, err := url.Parse(tmp)
-	if err != nil {
+	if lu, err = url.Parse(tmp); err != nil {
 		return &url.URL{}, fmt.Errorf("Error parsing URL! %v", err)
 	}
-	if !u.IsAbs() {
+	if !lu.IsAbs() {
 		// relative?
-		u.Scheme = rfr.Scheme
-		if u.Hostname() == "" {
-			//is-relative
-			u.Host = rfr.Host
+		lu.Scheme = rfr.Scheme
+		if lu.Hostname() == "" {
+			// is-relative
+			lu.Host = rfr.Host
 		}
 	}
-	if u.Port() == "" && u.Scheme == "gemini" {
-		u.Host += ":1965"
+	if lu.Port() == "" && lu.Scheme == "gemini" {
+		// be unambiguous for port
+		lu.Host += ":1965"
 	}
 
-	return u, nil
+	return lu, nil
 }
 
 func NewControl(ctx context.Context) *control {
-	var ctrl = &control{
+	ctrl := &control{
 		rules: safemap{m: make(map[string]*rewriter)},
 		ctx:   ctx,
 	}
@@ -89,51 +87,60 @@ func NewControl(ctx context.Context) *control {
 	return ctrl
 }
 
-func (c *control) Dial(u *url.URL) (io.Reader, error) {
-	var err error
-	c.conn, err = tls.Dial("tcp", u.Host, nil)
-	if err != nil {
+func (c *control) Dial(u *url.URL) (*bufio.Reader, error) {
+	var (
+		err            error
+		status         int
+		responseHeader string
+	)
+	if c.conn, err = tls.Dial("tcp", u.Host, nil); err != nil {
 		return nil, fmt.Errorf("Failed to connect: %v", err)
 	}
-	c.state = CONNECTION_OPEN
-
+	c.state = NetOpen
 	// Send request (CR LF terminated)
 	c.conn.Write([]byte(u.String() + "\r\n"))
 
 	// Receive and parse response header
-	var reader = bufio.NewReader(c.conn)
-	responseHeader, err := reader.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read response %v", err)
+	reader := bufio.NewReader(c.conn)
+	if responseHeader, err = reader.ReadString('\n'); err != nil {
+		return c.dialError("Failed to read response %v", err.Error())
 	}
-	var parts = strings.Fields(responseHeader)
-	status, err := strconv.Atoi(parts[0][0:1])
-	if err != nil {
-		return nil, fmt.Errorf("Failed to extract status %v", err)
+	// split on whitespace
+	parts := strings.Fields(responseHeader)
+	// status is two digits (but we only care about the leading digit)
+	if status, err = strconv.Atoi(parts[0][0:1]); err != nil {
+		return c.dialError("Failed to extract status %v", err.Error())
 	}
-	var meta = parts[1]
+	meta := parts[1]
+	if len(meta) > 1024 {
+		// cannot exceed 1024 bytes
+		return c.dialError("Response header size of meta field")
+	}
 
 	switch status {
 	case 1, 6:
 		// No input, or client certs
-		return nil, fmt.Errorf("Unsupported feature! - %v", status)
+		return c.dialError("Unsupported feature! - %s", strconv.Itoa(status))
 
-	case 2:
-		// Successful transaction
+	case 2: // success
 		// text/* content only
 		if !strings.HasPrefix(meta, "text/") {
-			return nil, fmt.Errorf("Unsupported type %s", meta)
+			return c.dialError("Not-implemented MIME support %s", meta)
 		}
 		return reader, nil
 
-	case 3:
-		// TODO use config setting to follow redirects (enable-follow as default)
-		return nil, fmt.Errorf("Not-implemented: REDIR %v", meta)
+	case 3: // redirect
+		// TODO use config setting (enable-follow as default)
+		if lu, err := Format(meta, u.String()); err == nil {
+			c.preRedirect()
+			return c.Dial(lu)
+		}
+		return c.dialError("REDIR %s", meta)
 	case 4, 5:
-		return nil, fmt.Errorf("ERROR: %v", meta)
+		return c.dialError("ERROR: %s", meta)
 	}
 
-	return nil, fmt.Errorf("Exceptional status code did not match known values.")
+	return c.dialError("Exceptional status code did not match known values.")
 }
 
 // Disconnect and close gr channels
@@ -141,14 +148,26 @@ func (c *control) Close() {
 	c.rules.Lock()
 	defer c.rules.Unlock()
 
-	if c.state != CONNECTION_CLOSE {
+	if c.state != NetClose {
 		//todo atomic set
-		c.state = CONNECTION_CLOSE
+		c.state = NetClose
 		c.conn.Close()
 	}
 	for _, run := range c.rules.m {
 		close(run.ch)
 	}
+}
+func (c *control) preRedirect() {
+	c.state = NetClose
+	c.conn.Close()
+}
+func (c *control) dialError(ar ...string) (*bufio.Reader, error) {
+	// convenience to close connection, from dial errors
+	c.preRedirect()
+	if len(ar) > 1 {
+		return nil, fmt.Errorf(ar[0], ar[1:])
+	}
+	return nil, fmt.Errorf(ar[0])
 }
 
 // Gemtext op
@@ -183,21 +202,21 @@ func (c *control) Attach(op string, f func(Node) string) error {
 	return nil
 }
 
-func (c *control) Retrieve(r io.Reader) (string, error) {
+func (c *control) Retrieve(r *bufio.Reader) (string, error) {
 	c.rules.Lock()
 	defer c.rules.Unlock()
-
 	var (
-		buffer = make(chan string)
-		bld    strings.Builder
+		bld  strings.Builder
+		buf  []byte
+		err  error
+		tree *Tree
+		acc  = make(chan string)
 	)
 	// grab the entire gemini body since Parse() accepts the body as string
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
+	if buf, err = ioutil.ReadAll(r); err != nil {
 		return "", err
 	}
-	tree, err := Parse(string(b))
-	if err != nil {
+	if tree, err = Parse(string(buf)); err != nil {
 		return "", err
 	}
 
@@ -205,22 +224,22 @@ func (c *control) Retrieve(r io.Reader) (string, error) {
 	grp, _ := errgroup.WithContext(c.ctx)
 	go func() {
 		// accumulate results
-		for row := range buffer {
+		for row := range acc {
 			bld.WriteString(row)
 		}
 	}()
 	// tree walk
-	for _, n := range tree.Root.Nodes {
-		switch n.Type() {
+	for _, no := range tree.Root.Nodes {
+		switch no.Type() {
 		case NodeLink:
 			if run, ok := c.rules.m[GmLink]; ok {
-				spawn(run.ch, run.fn, buffer, grp)
-				run.ch <- n
+				spawn(run.ch, run.fn, acc, grp)
+				run.ch <- no
 			}
 		default:
 			if run, ok := c.rules.m[GmPlain]; ok {
-				spawn(run.ch, run.fn, buffer, grp)
-				run.ch <- n
+				spawn(run.ch, run.fn, acc, grp)
+				run.ch <- no
 			}
 		}
 	}
@@ -228,7 +247,16 @@ func (c *control) Retrieve(r io.Reader) (string, error) {
 	// wait for grs to complete
 	grp.Wait()
 	// signal the for/range to end
-	close(buffer)
+	close(acc)
 
 	return bld.String(), nil
 }
+
+// network state
+type Transition uint8
+
+const (
+	NetNone Transition = iota
+	NetOpen
+	NetClose
+)
