@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"net/url"
 
@@ -10,6 +11,7 @@ import (
 func (g *Game) geminiPod(addr string) {
 	var (
 		req  *url.URL
+		rdr  *bufio.Reader
 		err  error
 		ctrl = gmi.NewControl(context.Background())
 	)
@@ -22,8 +24,7 @@ func (g *Game) geminiPod(addr string) {
 			"DEBUG URL format error "+err.Error())
 		return
 	}
-	rdr, err := ctrl.Dial(req)
-	if err != nil {
+	if rdr, err = ctrl.Dial(req); err != nil {
 		g.panel.AppendParagraph(1,
 			"DEBUG dial error "+err.Error())
 		return
@@ -33,12 +34,12 @@ func (g *Game) geminiPod(addr string) {
 	g.panel.Skip()
 	defer g.panel.Resume()
 	// fetch gemini content (and trigger rules)
-	_, err = ctrl.Retrieve(rdr)
-	if err != nil {
+	if _, err = ctrl.Retrieve(rdr); err != nil {
 		g.panel.AppendParagraph(1,
 			"DEBUG retrv error "+err.Error())
 		return
 	}
+	//todo setter
 	g.panel.bar.text = []rune(req.String())
 }
 

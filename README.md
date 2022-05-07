@@ -74,3 +74,6 @@ Lexical Scanning in Go
 Noto Sans Mono
  by [Google](https://fonts.google.com/noto/specimen/Noto+Sans+Mono/about) ([LICENSE](https://scripts.sil.org/cms/scripts/page.php?site_id=nrsi&id=OFL))
 
+DejaVu Sans Mono
+ by [DejaVu](https://dejavu-fonts.github.io/) ([LICENSE](https://github.com/dejavu-fonts/dejavu-fonts/blob/master/LICENSE))
+
