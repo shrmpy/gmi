@@ -15,4 +15,7 @@ RUN go get github.com/gdamore/tcell/v2
 
 RUN go get github.com/tinne26/etxt
 
+# toolset for CA and client cert
+RUN git clone https://github.com/square/certstrap /opt/certstrap ;\
+    cd /opt/certstrap && go build
 

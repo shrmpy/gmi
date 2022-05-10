@@ -3,56 +3,58 @@ package gmi
 import (
 	"crypto/tls"
 	"crypto/x509"
+	_ "embed"
 	"fmt"
-	"io/ioutil"
-	//"os"
-	//"time"
+	"net/url"
 )
 
-// TODO don't allow the skip-verify option of TLS config
+
+func dialTLS(u *url.URL) (*tls.Conn, error) {
+	if u.Scheme != "gemini" {
+		return tls.Dial("tcp", u.Host, nil)
+	}
+	return dialGemini(u)
+}
+func dialGemini(u *url.URL) (*tls.Conn, error) {
+	conn, err := tls.Dial("tcp", u.Host, nil)
+	if err == nil {
+		// normal verify is fine
+		return conn, nil
+	}
+	e, ok := err.(x509.UnknownAuthorityError)
+	if !ok {
+		return nil, fmt.Errorf("Not-implemented: %v", err)
+	}
+	// TODO maintain known-hosts
+	// dial for self-signed certs
+	cfg := selfSignedConfig(e.Cert)
+	return tls.Dial("tcp", u.Host, cfg)
+}
+func selfSignedConfig(selfcrt *x509.Certificate) *tls.Config {
+	// WARNING: only for Gemini
+	return &tls.Config{InsecureSkipVerify: true,
+		MinVersion: tls.VersionTLS12,
+		VerifyConnection: func(cs tls.ConnectionState) error {
+			opts := x509.VerifyOptions{
+				DNSName:       cs.ServerName,
+				Intermediates: x509.NewCertPool(),
+			}
+			for _, cert := range cs.PeerCertificates[1:] {
+				opts.Intermediates.AddCert(cert)
+			}
+			// make self-signed cert behave as a rootCA
+			root := selfcrt
+			root.IsCA = true
+			opts.Roots = x509.NewCertPool()
+			opts.Roots.AddCert(root)
+
+			_, err := cs.PeerCertificates[0].Verify(opts)
+			return err
+		},
+	}
+}
+
+// TODO
 //      implement TOFU as described by the spec
 //      maybe ref https://pkg.go.dev/golang.org/x/crypto/ssh/knownhosts
-/*
-   ////conn, err := tls.Dial("tcp", u.Host, &tls.Config{InsecureSkipVerify: true})
-   ca, err := newClientConfig(CA_ROOTS)
-   if err != nil {
-           return "", err
-   }
-*/
-
-func loadRootCA(file string) (*x509.CertPool, error) {
-	pemBytes, err := ioutil.ReadFile(file)
-	if err != nil {
-		return nil, err
-	}
-
-	roots := x509.NewCertPool()
-	ok := roots.AppendCertsFromPEM(pemBytes)
-	if !ok {
-		return roots, fmt.Errorf("failed to parse root certificate")
-	}
-	//caset := tls.NewCASet()
-	//if caset.SetFromPEM(pemBytes) {
-	//	return caset, nil
-	//}
-	return nil, fmt.Errorf("Unable to decode root CA set")
-}
-
-func newClientConfig(rootCAPath string) (*tls.Config, error) {
-	rootca, err := loadRootCA(rootCAPath)
-	if err != nil {
-		return nil, err
-	}
-
-	/*
-		urandom, err := os.Open("/dev/urandom")
-		if err != nil {
-			return nil, err
-		}*/
-
-	return &tls.Config{
-		//Rand:    urandom,
-		//Time:    time.Seconds,
-		RootCAs: rootca,
-	}, nil
-}
+//
