@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	//"io"
 	"io/ioutil"
 	"net/url"
 	"strconv"
@@ -14,8 +13,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 )
-
-////const CA_ROOTS         = "/etc/ssl/certs/ca-certificates.crt"
 
 type control struct {
 	conn  *tls.Conn
@@ -31,49 +28,6 @@ type safemap struct {
 type rewriter struct {
 	fn func(Node) string
 	ch chan Node
-}
-
-// format the URL for Gemini scheme
-func Format(raw string, referer string) (*url.URL, error) {
-	//TODO make unit tests to prove we follow
-	//     https://gemini.circumlunar.space/docs/specification.gmi
-	var (
-		err error
-		lu  *url.URL
-		tmp = raw
-		rfr = &url.URL{Scheme: "gemini", Host: ":1965"}
-	)
-	if strings.HasPrefix(referer, "gemini://") {
-		if rfr, err = url.Parse(referer); err != nil {
-			return &url.URL{}, err
-		}
-	}
-	// b) no scheme, no host, relative path (causes empty scheme/host result)
-	//    (are dot paths allowed in links?)
-	if strings.HasPrefix(raw, "/") {
-		tmp = fmt.Sprintf("gemini://%s%s", rfr.Host, raw)
-	} else if foundAt := strings.Index(raw, ":/"); foundAt == -1 {
-		// a) no scheme, host without port (causes empty Parse result)
-		tmp = fmt.Sprintf("gemini://%s", raw)
-	}
-
-	if lu, err = url.Parse(tmp); err != nil {
-		return &url.URL{}, fmt.Errorf("Error parsing URL! %v", err)
-	}
-	if !lu.IsAbs() {
-		// relative?
-		lu.Scheme = rfr.Scheme
-		if lu.Hostname() == "" {
-			// is-relative
-			lu.Host = rfr.Host
-		}
-	}
-	if lu.Port() == "" && lu.Scheme == "gemini" {
-		// be unambiguous for port
-		lu.Host += ":1965"
-	}
-
-	return lu, nil
 }
 
 func NewControl(ctx context.Context) *control {
@@ -93,7 +47,8 @@ func (c *control) Dial(u *url.URL) (*bufio.Reader, error) {
 		status         int
 		responseHeader string
 	)
-	if c.conn, err = tls.Dial("tcp", u.Host, nil); err != nil {
+	////if c.conn, err = tls.Dial("tcp", u.Host, nil); err != nil {
+	if c.conn, err = dialTLS(u); err != nil {
 		return nil, fmt.Errorf("Failed to connect: %v", err)
 	}
 	c.state = NetOpen
@@ -141,33 +96,6 @@ func (c *control) Dial(u *url.URL) (*bufio.Reader, error) {
 	}
 
 	return c.dialError("Exceptional status code did not match known values.")
-}
-
-// Disconnect and close gr channels
-func (c *control) Close() {
-	c.rules.Lock()
-	defer c.rules.Unlock()
-
-	if c.state != NetClose {
-		//todo atomic set
-		c.state = NetClose
-		c.conn.Close()
-	}
-	for _, run := range c.rules.m {
-		close(run.ch)
-	}
-}
-func (c *control) preRedirect() {
-	c.state = NetClose
-	c.conn.Close()
-}
-func (c *control) dialError(ar ...string) (*bufio.Reader, error) {
-	// convenience to close connection, from dial errors
-	c.preRedirect()
-	if len(ar) > 1 {
-		return nil, fmt.Errorf(ar[0], ar[1:])
-	}
-	return nil, fmt.Errorf(ar[0])
 }
 
 // Gemtext op
@@ -250,6 +178,33 @@ func (c *control) Retrieve(r *bufio.Reader) (string, error) {
 	close(acc)
 
 	return bld.String(), nil
+}
+
+// Disconnect and close gr channels
+func (c *control) Close() {
+	c.rules.Lock()
+	defer c.rules.Unlock()
+
+	if c.state != NetClose {
+		//todo atomic set
+		c.state = NetClose
+		c.conn.Close()
+	}
+	for _, run := range c.rules.m {
+		close(run.ch)
+	}
+}
+func (c *control) preRedirect() {
+	c.state = NetClose
+	c.conn.Close()
+}
+func (c *control) dialError(ar ...string) (*bufio.Reader, error) {
+	// convenience to close connection, from dial errors
+	c.preRedirect()
+	if len(ar) > 1 {
+		return nil, fmt.Errorf(ar[0], ar[1:])
+	}
+	return nil, fmt.Errorf(ar[0])
 }
 
 // network state
