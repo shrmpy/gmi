@@ -1,7 +1,7 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"image/color"
 	"log"
 )
@@ -11,6 +11,7 @@ import "github.com/hajimehoshi/ebiten/v2"
 type Game struct {
 	panel *Panel
 	bus   chan signal
+	cfg   *Config
 }
 
 func (g *Game) Layout(w int, h int) (int, int) { return w, h }
@@ -19,7 +20,9 @@ func (g *Game) Update() error {
 	case req := <-g.bus:
 		if req.op == 8888 {
 			// the quit signal
-			return errors.New("teardown")
+			var er = fmt.Errorf("teardown")
+			log.Printf("INFO Program exiting by burger icon, %v ", er.Error())
+			return er
 		}
 		if req.op == 1965 {
 			g.panel.Reset()
@@ -44,17 +47,21 @@ func main() {
 		ch = make(chan signal, 100)
 	)
 	defer close(ch)
+	var cfg, err = readArgs()
+	if err != nil {
+		log.Fatalf("ERROR Config arguments, %v", err.Error())
+	}
 	pn.QuitFunc(func(el Element) {
 		ch <- signal{op: 8888}
 	})
-	var gm = &Game{panel: pn, bus: ch}
+	var gm = &Game{panel: pn, bus: ch, cfg: cfg}
 	pn.GeminiFunc(gm.geminiPod)
 
 	ebiten.SetWindowTitle("gmimo")
 	ebiten.SetWindowSize(wd, ht)
-	var err = ebiten.RunGame(gm)
-	if err != nil {
-		log.Fatal(err)
+	if err = ebiten.RunGame(gm); err != nil {
+		//todo custom error type
+		log.Fatalf("ERROR Quit, %v ", err)
 	}
 }
 
