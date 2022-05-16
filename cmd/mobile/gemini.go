@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"log"
 	"net/url"
 
 	"github.com/shrmpy/gmi"
@@ -10,37 +11,38 @@ import (
 
 func (g *Game) geminiPod(addr string) {
 	var (
-		req  *url.URL
-		rdr  *bufio.Reader
-		err  error
-		ctrl = gmi.NewControl(context.Background())
+		req *url.URL
+		rdr *bufio.Reader
+		err error
+		ctx = context.Background()
 	)
+	// avoid coupling gmi pkg to cfg struct
+	var ctrl = gmi.NewControl(ctx, maskFrom(g.cfg))
 	// substitute our customized rules
 	ctrl.Attach(gmi.GmLink, g.rewriteLink)
 	ctrl.Attach(gmi.GmPlain, g.rewritePlain)
-
+	log.Printf("INFO Format URL, %s", addr)
 	if req, err = gmi.Format(addr, string(g.panel.bar.text)); err != nil {
-		g.panel.AppendParagraph(1,
-			"DEBUG URL format error "+err.Error())
+		log.Printf("INFO URL format error, %v", err.Error())
 		return
 	}
+	log.Printf("INFO Dial Gemini pod, %s", req.String())
 	if rdr, err = ctrl.Dial(req); err != nil {
-		g.panel.AppendParagraph(1,
-			"DEBUG dial error "+err.Error())
+		log.Printf("INFO Dial error, %v", err.Error())
 		return
 	}
 	defer ctrl.Close()
-	// beginning page change, temporarily postpone its drawing
+	log.Printf("INFO Draw paused")
 	g.panel.Skip()
 	defer g.panel.Resume()
-	// fetch gemini content (and trigger rules)
+	log.Printf("INFO Gemini content, %d", rdr.Buffered())
 	if _, err = ctrl.Retrieve(rdr); err != nil {
-		g.panel.AppendParagraph(1,
-			"DEBUG retrv error "+err.Error())
+		log.Printf("INFO Retrieve error, %v", err.Error())
 		return
 	}
 	//todo setter
 	g.panel.bar.text = []rune(req.String())
+	log.Printf("INFO Draw resumed")
 }
 
 // define how to treat Gem links
@@ -54,7 +56,7 @@ func (g *Game) rewriteLink(no gmi.Node) string {
 	if lnk.Friendly == "" {
 		name = lu
 	}
-
+	log.Printf("INFO Gem link pos %d, %s", seq, lu)
 	g.panel.AppendLink(int(seq), name, lu, func(addr string) {
 		// send signal to the dispatcher
 		// it contains the link URL as the data field
@@ -69,7 +71,7 @@ func (g *Game) rewritePlain(no gmi.Node) string {
 		tn  = no.(*gmi.TextNode)
 		seq = tn.Position()
 	)
-
+	log.Printf("INFO Gem plain pos %d", seq)
 	g.panel.AppendParagraph(int(seq), no.String())
 	return ""
 }

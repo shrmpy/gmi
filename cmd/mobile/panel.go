@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	"fmt"
 	"image"
 	"image/color"
 	"log"
@@ -153,6 +154,11 @@ func (p *Panel) GeminiFunc(f func(addr string)) {
 	p.gemini = f
 	p.bar.HandleFunc(func(el Element) {
 		var lu = el.(*Icon).Text
+		if foundAt := strings.Index(lu, ":/"); foundAt == -1 {
+			// less ambiguous for URL formatter
+			lu = fmt.Sprintf("gemini://%s", lu)
+		}
+		p.Reset()
 		p.gemini(lu)
 	})
 }
@@ -222,12 +228,12 @@ func newPanel(wd, ht int) *Panel {
 	)
 	name, err = fonts.ParseFontBytes(notoSansMonoTTF)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("INFO Parse error Noto Sans Mono, %v", err.Error())
 	}
 	log.Printf("+ font %s", name)
 	name, err = fonts.ParseFontBytes(dejavuSansMonoTTF)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("INFO Parse error DejaVu Sans Mono, %v", err.Error())
 	}
 	log.Printf("+ font %s", name)
 	var font = fonts.GetFont(monospaceFont)

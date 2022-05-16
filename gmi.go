@@ -10,9 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-
-	"golang.org/x/sync/errgroup"
 )
+import "golang.org/x/sync/errgroup"
 
 type control struct {
 	conn  *tls.Conn
@@ -30,10 +29,12 @@ type rewriter struct {
 	ch chan Node
 }
 
-func NewControl(ctx context.Context) *control {
+func NewControl(ctx context.Context, isv Mask) *control {
+	// encapsulate the key name from caller
+	cx := context.WithValue(ctx, maskISVKey, isv)
 	ctrl := &control{
 		rules: safemap{m: make(map[string]*rewriter)},
-		ctx:   ctx,
+		ctx:   cx,
 	}
 
 	ctrl.Attach(GmPlain, vanilla)
@@ -47,9 +48,8 @@ func (c *control) Dial(u *url.URL) (*bufio.Reader, error) {
 		status         int
 		responseHeader string
 	)
-	////if c.conn, err = tls.Dial("tcp", u.Host, nil); err != nil {
-	if c.conn, err = dialTLS(u); err != nil {
-		return nil, fmt.Errorf("Failed to connect: %v", err)
+	if c.conn, err = dialTLS(c.ctx, u); err != nil {
+		return nil, fmt.Errorf("Failed to connect: %w", err)
 	}
 	c.state = NetOpen
 	// Send request (CR LF terminated)
@@ -58,44 +58,58 @@ func (c *control) Dial(u *url.URL) (*bufio.Reader, error) {
 	// Receive and parse response header
 	reader := bufio.NewReader(c.conn)
 	if responseHeader, err = reader.ReadString('\n'); err != nil {
-		return c.dialError("Failed to read response %v", err.Error())
+		return c.dialError("Failed to read response %w", err)
 	}
 	// split on whitespace
 	parts := strings.Fields(responseHeader)
 	// status is two digits (but we only care about the leading digit)
 	if status, err = strconv.Atoi(parts[0][0:1]); err != nil {
-		return c.dialError("Failed to extract status %v", err.Error())
-	}
-	meta := parts[1]
-	if len(meta) > 1024 {
-		// cannot exceed 1024 bytes
-		return c.dialError("Response header size of meta field")
+		return c.dialError("Failed to extract status %w", err)
 	}
 
 	switch status {
 	case 1, 6:
 		// No input, or client certs
-		return c.dialError("Unsupported feature! - %s", strconv.Itoa(status))
+		return c.dialError("Unsupported feature! - " + strconv.Itoa(status))
 
 	case 2: // success
 		// text/* content only
+		meta := metaHeader(parts)
 		if !strings.HasPrefix(meta, "text/") {
-			return c.dialError("Not-implemented MIME support %s", meta)
+			return c.dialError("Not-implemented MIME support, " + meta)
 		}
 		return reader, nil
 
 	case 3: // redirect
-		// TODO use config setting (enable-follow as default)
+		// TODO ctx.Value(TLSRedirect) != 0
+		meta := metaHeader(parts)
+		if meta == "" {
+			return c.dialError("REDIR meta header field error")
+		}
 		if lu, err := Format(meta, u.String()); err == nil {
 			c.preRedirect()
 			return c.Dial(lu)
 		}
-		return c.dialError("REDIR %s", meta)
+		return c.dialError("REDIR " + meta)
 	case 4, 5:
-		return c.dialError("ERROR: %s", meta)
+		return c.dialError("ERROR: gemini status code 4 or 5")
 	}
 
 	return c.dialError("Exceptional status code did not match known values.")
+}
+func metaHeader(parts []string) string {
+	if len(parts) < 2 {
+		// missing meta field in the header
+		////return c.dialError("Response header meta field")
+		return ""
+	}
+	meta := parts[1]
+	if len(meta) > 1024 {
+		// cannot exceed 1024 bytes
+		////return c.dialError("Response header size of meta field")
+		return ""
+	}
+	return meta
 }
 
 // Gemtext op
@@ -198,13 +212,13 @@ func (c *control) preRedirect() {
 	c.state = NetClose
 	c.conn.Close()
 }
-func (c *control) dialError(ar ...string) (*bufio.Reader, error) {
+func (c *control) dialError(ar string, e ...error) (*bufio.Reader, error) {
 	// convenience to close connection, from dial errors
 	c.preRedirect()
-	if len(ar) > 1 {
-		return nil, fmt.Errorf(ar[0], ar[1:])
+	if len(e) > 0 {
+		return nil, fmt.Errorf(ar, e)
 	}
-	return nil, fmt.Errorf(ar[0])
+	return nil, fmt.Errorf(ar)
 }
 
 // network state

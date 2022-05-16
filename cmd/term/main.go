@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/gdamore/tcell/v2"
@@ -30,7 +31,7 @@ type container struct {
 	status *views.SimpleStyledTextBar
 	bag    *gembag
 	bus    chan signal
-
+	cfg *Config
 	views.Panel
 }
 
@@ -141,10 +142,14 @@ func main() {
 	var ch = make(chan signal, 100)
 	defer close(ch)
 	app = &views.Application{}
-
+	var cfg, err = readArgs()
+	if err != nil {
+		log.Fatalf("ERROR Config arguments, %v", err.Error())
+	}
 	var parent = &container{
 		bus: ch,
 		bag: &gembag{endx: 60, endy: 15},
+		cfg: cfg,
 	}
 
 	parent.keybar = views.NewSimpleStyledText()
@@ -186,7 +191,7 @@ func main() {
 		Foreground(tcell.ColorWhite).
 		Background(tcell.ColorBlack))
 	app.SetRootWidget(parent)
-	if err := app.Run(); err != nil {
+	if err = app.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}

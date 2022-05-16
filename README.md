@@ -45,7 +45,7 @@ cd gmi
 # make snap 
 snapcraft
 # local install
-sudo snap install gmird_0.0.9_arm64.snap --dangerous
+sudo snap install gmird_0.0.14_arm64.snap --dangerous
 # start reader
 gmird.mobile
 ```
@@ -53,9 +53,6 @@ gmird.mobile
 ## Credits
 Font Renderer
  by [tinne26](https://github.com/tinne26/etxt) ([LICENSE](https://github.com/tinne26/etxt/blob/main/LICENSE))
-
-TLS Config
- by [Dave Cheney](https://dave.cheney.net/2010/10/05/how-to-dial-remote-ssltls-services-in-go)
 
 Golang Gemini Demo 
  by [Solderpunk](https://tildegit.org/solderpunk/gemini-demo-3) ([LICENSE](https://tildegit.org/solderpunk/gemini-demo-3/src/branch/master/LICENSE))

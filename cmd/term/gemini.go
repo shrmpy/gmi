@@ -7,7 +7,8 @@ import (
 )
 
 func (a *container) geminiPod(url string, referer string) {
-	var ctrl = gmi.NewControl(context.Background())
+	var ctx = context.Background()
+	var ctrl = gmi.NewControl(ctx, maskFrom(a.cfg))
 	// substitute our custom rules
 	ctrl.Attach(gmi.GmLink, a.rewriteLink)
 	ctrl.Attach(gmi.GmPlain, a.rewritePlain)

@@ -26,8 +26,16 @@ func Format(raw string, referer string) (*url.URL, error) {
 	if strings.HasPrefix(raw, "/") {
 		tmp = fmt.Sprintf("gemini://%s%s", rfr.Host, raw)
 	} else if foundAt := strings.Index(raw, ":/"); foundAt == -1 {
-		// a) no scheme, host without port (causes empty Parse result)
-		tmp = fmt.Sprintf("gemini://%s", raw)
+		// a) no scheme
+		dotAt := strings.Index(raw, ".")
+		slash := strings.HasSuffix(raw, "/")
+		if dotAt == -1 && slash {
+			// relative off-root
+			tmp = fmt.Sprintf("gemini://%s/%s", rfr.Host, raw)
+		} else if dotAt != -1 && rfr.Hostname() != "" {
+			// assume explicit file and ext (index.gmi)
+			tmp = fmt.Sprintf("gemini://%s/%s/%s", rfr.Host, rfr.Path, raw)
+		}
 	}
 
 	if lu, err = url.Parse(tmp); err != nil {
