@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/gdamore/tcell/v2/views"
@@ -31,7 +32,7 @@ type container struct {
 	status *views.SimpleStyledTextBar
 	bag    *gembag
 	bus    chan signal
-	cfg *Config
+	cfg    *Config
 	views.Panel
 }
 
@@ -45,7 +46,12 @@ func (a *container) HandleEvent(ev tcell.Event) bool {
 		case tcell.KeyEnter:
 			if a.bag.gemini {
 				a.bag.gemini = false
-				a.bus <- signal{op: 1965, data: a.bag.url}
+				var lu = a.bag.url
+				if foundAt := strings.Index(lu, ":/"); foundAt == -1 {
+					// disambiguate means less work in Format
+					lu = fmt.Sprintf("gemini://%s", lu)
+				}
+				a.bus <- signal{op: 1965, data: lu}
 			} else {
 				// certain lines can be clicked
 				a.gvw.Actions()
@@ -99,7 +105,7 @@ func (a *container) Draw() {
 	case req := <-a.bus:
 		if req.op == 1965 {
 			// launch link URL signal
-			a.geminiPod(req.data, a.bag.url)
+			a.capsule(req.data, a.bag.url)
 			a.status.SetCenter(a.bag.url)
 
 		} else if req.op == 8888 {
@@ -146,6 +152,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("ERROR Config arguments, %v", err.Error())
 	}
+	defer func() {
+		// release log file
+		if cfg.Log.file != nil {
+			cfg.Log.file.Close()
+		}
+	}()
 	var parent = &container{
 		bus: ch,
 		bag: &gembag{endx: 60, endy: 15},
@@ -176,7 +188,7 @@ func main() {
 		Background(tcell.ColorBlack).
 		Foreground(tcell.ColorWhite))
 	title.SetCenter("reader", tcell.StyleDefault)
-	title.SetRight("gmit v0.0.9", tcell.StyleDefault)
+	title.SetRight("gmit v0.0.19", tcell.StyleDefault)
 
 	parent.gvw = NewGemView()
 

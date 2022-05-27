@@ -14,8 +14,9 @@ RUN go get github.com/gdamore/tcell/v2
 ##RUN go build -o hello cmd/term/*.go
 
 RUN go get github.com/tinne26/etxt
+RUN go mod download golang.org/x/crypto
 
 # toolset for CA and client cert
-RUN git clone https://github.com/square/certstrap /opt/certstrap ;\
-    cd /opt/certstrap && go build
+##RUN git clone https://github.com/square/certstrap /opt/certstrap ;\
+##    cd /opt/certstrap && go build
 

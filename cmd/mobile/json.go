@@ -42,10 +42,10 @@ func maskFrom(cfg *Config) gmi.Mask {
 		log.Printf("INFO isv with LCN bit, %v", cfg.TLS.LegacyCommonName)
 		isv = isv.Set(cfg.TLS.LegacyCommonName)
 	}
-	if cfg.TLS.SelfSigned.Has(gmi.AcceptSSC) ||
-		cfg.TLS.SelfSigned.Has(gmi.SSCPrompt) ||
-		cfg.TLS.SelfSigned.Has(gmi.SSCReject) {
-		log.Printf("INFO isv with SSC bit, %v", cfg.TLS.SelfSigned)
+	if cfg.TLS.SelfSigned.Has(gmi.AcceptUAE) ||
+		cfg.TLS.SelfSigned.Has(gmi.PromptUAE) ||
+		cfg.TLS.SelfSigned.Has(gmi.UAEReject) {
+		log.Printf("INFO isv with UAE bit, %v", cfg.TLS.SelfSigned)
 		isv = isv.Set(cfg.TLS.SelfSigned)
 	}
 	if cfg.TLS.Expired.Has(gmi.AcceptCIE) ||
@@ -98,7 +98,7 @@ func readConfig(filename string) (*Config, error) {
 func safeConfig() *Config {
 	var c = Config{Title: "Safe defaults"}
 	c.TLS.MinimumVersion = "1.2"
-	c.TLS.SelfSigned = gmi.SSCPrompt
+	c.TLS.SelfSigned = gmi.PromptUAE
 	c.TLS.LegacyCommonName = gmi.AcceptLCN
 	c.TLS.Expired = gmi.CIEReject
 	c.Gemini.FollowRedirect = 0
@@ -167,19 +167,19 @@ func hydrate(data map[string]interface{}) Config {
 func toMask(name string) gmi.Mask {
 	switch strings.ToLower(name) {
 	case "sscreject":
-		return gmi.SSCReject
+		return gmi.UAEReject
 	case "lcnreject":
 		return gmi.LCNReject
 	case "ciereject":
 		return gmi.CIEReject
-	case "sscprompt":
-		return gmi.SSCPrompt
+	case "promptssc":
+		return gmi.PromptUAE
 	case "lcnprompt":
 		return gmi.LCNPrompt
 	case "cieprompt":
 		return gmi.CIEPrompt
 	case "acceptssc":
-		return gmi.AcceptSSC
+		return gmi.AcceptUAE
 	case "acceptlcn":
 		return gmi.AcceptLCN
 	case "acceptcie":

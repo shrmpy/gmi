@@ -6,6 +6,7 @@ require (
 	github.com/gdamore/tcell/v2 v2.5.1
 	github.com/hajimehoshi/ebiten/v2 v2.3.2
 	github.com/tinne26/etxt v0.0.1
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
 

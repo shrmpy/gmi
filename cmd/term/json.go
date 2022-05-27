@@ -27,6 +27,7 @@ type Config struct {
 	}
 	Log struct {
 		Level string
+		file  *os.File
 	}
 }
 
@@ -42,10 +43,10 @@ func maskFrom(cfg *Config) gmi.Mask {
 		log.Printf("INFO isv with LCN bit, %v", cfg.TLS.LegacyCommonName)
 		isv = isv.Set(cfg.TLS.LegacyCommonName)
 	}
-	if cfg.TLS.SelfSigned.Has(gmi.AcceptSSC) ||
-		cfg.TLS.SelfSigned.Has(gmi.SSCPrompt) ||
-		cfg.TLS.SelfSigned.Has(gmi.SSCReject) {
-		log.Printf("INFO isv with SSC bit, %v", cfg.TLS.SelfSigned)
+	if cfg.TLS.SelfSigned.Has(gmi.AcceptUAE) ||
+		cfg.TLS.SelfSigned.Has(gmi.PromptUAE) ||
+		cfg.TLS.SelfSigned.Has(gmi.UAEReject) {
+		log.Printf("INFO isv with UAE bit, %v", cfg.TLS.SelfSigned)
 		isv = isv.Set(cfg.TLS.SelfSigned)
 	}
 	if cfg.TLS.Expired.Has(gmi.AcceptCIE) ||
@@ -59,14 +60,25 @@ func maskFrom(cfg *Config) gmi.Mask {
 }
 func readArgs() (*Config, error) {
 	var (
-		err error
-		cfg *Config
-		js  = flag.String("json", "config.json", "JSON file path")
+		err  error
+		cfg  *Config
+		abs  string
+		file *os.File
+		js   = flag.String("json", "config.json", "JSON file path")
+		lf   = flag.String("log", "", "Write log to file")
 	)
 	flag.Parse()
 	log.SetFlags(log.Lshortfile | log.Ltime)
-
 	if cfg, err = readConfig(*js); err == nil {
+		if *lf != "" {
+			if abs, err = filepath.Abs(*lf); err == nil {
+				if file, err = os.OpenFile(abs, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 644); err == nil {
+					cfg.Log.file = file
+					log.SetOutput(file)
+				}
+			}
+		}
+
 		return cfg, nil
 	}
 	if errors.Is(err, fs.ErrNotExist) {
@@ -98,7 +110,7 @@ func readConfig(filename string) (*Config, error) {
 func safeConfig() *Config {
 	var c = Config{Title: "Safe defaults"}
 	c.TLS.MinimumVersion = "1.2"
-	c.TLS.SelfSigned = gmi.SSCPrompt
+	c.TLS.SelfSigned = gmi.PromptUAE
 	c.TLS.LegacyCommonName = gmi.AcceptLCN
 	c.TLS.Expired = gmi.CIEReject
 	c.Gemini.FollowRedirect = 0
@@ -161,25 +173,24 @@ func hydrate(data map[string]interface{}) Config {
 		}
 	}
 
-	log.Printf("DEBUG hydrate from json data, %v", tmp)
 	return tmp
 }
 func toMask(name string) gmi.Mask {
 	switch strings.ToLower(name) {
 	case "sscreject":
-		return gmi.SSCReject
+		return gmi.UAEReject
 	case "lcnreject":
 		return gmi.LCNReject
 	case "ciereject":
 		return gmi.CIEReject
-	case "sscprompt":
-		return gmi.SSCPrompt
+	case "promptssc":
+		return gmi.PromptUAE
 	case "lcnprompt":
 		return gmi.LCNPrompt
 	case "cieprompt":
 		return gmi.CIEPrompt
 	case "acceptssc":
-		return gmi.AcceptSSC
+		return gmi.AcceptUAE
 	case "acceptlcn":
 		return gmi.AcceptLCN
 	case "acceptcie":

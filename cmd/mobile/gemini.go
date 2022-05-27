@@ -9,7 +9,7 @@ import (
 	"github.com/shrmpy/gmi"
 )
 
-func (g *Game) geminiPod(addr string) {
+func (g *Game) capsule(addr string) {
 	var (
 		req *url.URL
 		rdr *bufio.Reader
@@ -17,7 +17,7 @@ func (g *Game) geminiPod(addr string) {
 		ctx = context.Background()
 	)
 	// avoid coupling gmi pkg to cfg struct
-	var ctrl = gmi.NewControl(ctx, maskFrom(g.cfg))
+	var ctrl = gmi.NewControl(ctx)
 	// substitute our customized rules
 	ctrl.Attach(gmi.GmLink, g.rewriteLink)
 	ctrl.Attach(gmi.GmPlain, g.rewritePlain)
@@ -27,7 +27,7 @@ func (g *Game) geminiPod(addr string) {
 		return
 	}
 	log.Printf("INFO Dial Gemini pod, %s", req.String())
-	if rdr, err = ctrl.Dial(req); err != nil {
+	if rdr, err = ctrl.Dial(req, maskFrom(g.cfg)); err != nil {
 		log.Printf("INFO Dial error, %v", err.Error())
 		return
 	}

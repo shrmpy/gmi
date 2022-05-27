@@ -10,7 +10,7 @@
   "tls": {
     "legacy_common_name": "AcceptLCN",
     "expired": "CIEReject",
-    "self_signed": "SSCPrompt",
+    "self_signed": "PromptUAE",
     "minimum_version": "1.2"
   }
 }

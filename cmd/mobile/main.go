@@ -26,7 +26,7 @@ func (g *Game) Update() error {
 		}
 		if req.op == 1965 {
 			g.panel.Reset()
-			g.geminiPod(req.data)
+			g.capsule(req.data)
 		}
 	default:
 		g.panel.Update()
@@ -55,7 +55,7 @@ func main() {
 		ch <- signal{op: 8888}
 	})
 	var gm = &Game{panel: pn, bus: ch, cfg: cfg}
-	pn.GeminiFunc(gm.geminiPod)
+	pn.GeminiFunc(gm.capsule)
 
 	ebiten.SetWindowTitle("gmimo")
 	ebiten.SetWindowSize(wd, ht)

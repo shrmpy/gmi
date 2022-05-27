@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
+	//"fmt"
 
 	"github.com/shrmpy/gmi"
 )
 
-func (a *container) geminiPod(url string, referer string) {
-	var ctx = context.Background()
-	var ctrl = gmi.NewControl(ctx, maskFrom(a.cfg))
+func (a *container) capsule(url string, referer string) {
+	var ctrl = gmi.NewControl(context.Background())
 	// substitute our custom rules
 	ctrl.Attach(gmi.GmLink, a.rewriteLink)
 	ctrl.Attach(gmi.GmPlain, a.rewritePlain)
@@ -18,7 +18,7 @@ func (a *container) geminiPod(url string, referer string) {
 		a.status.SetRight(err.Error())
 		return
 	}
-	rdr, err := ctrl.Dial(req)
+	rdr, err := ctrl.Dial(req, maskFrom(a.cfg))
 	if err != nil {
 		a.status.SetRight(err.Error())
 		return
@@ -37,17 +37,20 @@ func (a *container) geminiPod(url string, referer string) {
 
 // define how to treat Gem links
 func (a *container) rewriteLink(n gmi.Node) string {
-	var lnk *gmi.LinkNode
-	lnk = n.(*gmi.LinkNode)
 	var (
+		lnk = n.(*gmi.LinkNode)
 		seq  = lnk.Position()
-		ur   = lnk.URL.String()
+		lu   = lnk.URL.String()
 		name = lnk.Friendly
 	)
 	if name == "" {
-		name = ur
+		name = lu
 	}
-	a.gvw.AppendLink(int(seq), name, ur, func(u string) {
+	//DEBUG
+	////name = fmt.Sprintf("%s %s %s", lnk.URL.Scheme, lnk.URL.Host, lnk.URL.EscapedPath())
+	//DEBUG
+
+	a.gvw.AppendLink(int(seq), name, lu, func(u string) {
 		// send signal to the dispatcher
 		// it contains the link URL as the data field
 		a.bus <- signal{op: 1965, data: u}

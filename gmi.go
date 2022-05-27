@@ -29,12 +29,10 @@ type rewriter struct {
 	ch chan Node
 }
 
-func NewControl(ctx context.Context, isv Mask) *control {
-	// encapsulate the key name from caller
-	cx := context.WithValue(ctx, maskISVKey, isv)
+func NewControl(ctx context.Context) *control {
 	ctrl := &control{
 		rules: safemap{m: make(map[string]*rewriter)},
-		ctx:   cx,
+		ctx:   ctx,
 	}
 
 	ctrl.Attach(GmPlain, vanilla)
@@ -42,13 +40,15 @@ func NewControl(ctx context.Context, isv Mask) *control {
 	return ctrl
 }
 
-func (c *control) Dial(u *url.URL) (*bufio.Reader, error) {
+func (c *control) Dial(u *url.URL, isv Mask) (*bufio.Reader, error) {
 	var (
 		err            error
 		status         int
 		responseHeader string
 	)
-	if c.conn, err = dialTLS(c.ctx, u); err != nil {
+	// encapsulate the key name from caller
+	cx := context.WithValue(c.ctx, maskISVKey, isv)
+	if c.conn, err = dialTLS(cx, u); err != nil {
 		return nil, fmt.Errorf("Failed to connect: %w", err)
 	}
 	c.state = NetOpen
@@ -88,7 +88,7 @@ func (c *control) Dial(u *url.URL) (*bufio.Reader, error) {
 		}
 		if lu, err := Format(meta, u.String()); err == nil {
 			c.preRedirect()
-			return c.Dial(lu)
+			return c.Dial(lu, isv)
 		}
 		return c.dialError("REDIR " + meta)
 	case 4, 5:

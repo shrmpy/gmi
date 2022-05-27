@@ -31,36 +31,36 @@ type GemView struct {
 	scratch []*GemLine
 }
 
-func (p *GemView) AppendLink(sequence int, name string, url string, f func(u string)) {
+func (p *GemView) AppendLink(sequence int, name string, lu string, f func(u string)) {
 	if p.sorted {
 		// sanity check (enforce Skip() is called first)
 		return
 	}
-	var l = &GemLine{
+	var li = &GemLine{
 		Sequence: sequence,
 		Text:     name,
-		LinkURL:  url,
+		LinkURL:  lu,
 	}
-	l.style = tcell.StyleDefault.
+	li.style = tcell.StyleDefault.
 		Background(tcell.ColorBlack).
 		Foreground(tcell.ColorGreen).
 		Underline(true)
 	// attach callback/fn for line-click event
-	l.SetOnPressed(func(th *GemLine) {
+	li.SetOnPressed(func(th *GemLine) {
 		f(th.LinkURL)
 	})
-	p.scratch = append(p.scratch, l)
+	p.scratch = append(p.scratch, li)
 }
 func (p *GemView) AppendParagraph(sequence int, text string) {
 	if p.sorted {
 		// sanity check (enforce Skip() is called first)
 		return
 	}
-	var l = &GemLine{
+	var li = &GemLine{
 		Sequence: sequence,
 		Text:     text,
 	}
-	p.scratch = append(p.scratch, l)
+	p.scratch = append(p.scratch, li)
 }
 
 // skip render step for page lines
@@ -96,7 +96,6 @@ func (p *GemView) Resume() {
 	p.sorted = true
 }
 func (p *GemView) Actions() {
-	//func (p *GemView) HandleEvent(e tcell.Event) bool {
 	//TODO determine cursor x,y and whether it falls on link line
 	var m = p.CellView.GetModel().(*GemPage)
 	_, cy, en, sh := m.GetCursor()
@@ -107,7 +106,6 @@ func (p *GemView) Actions() {
 	//todo panning offset calc
 	var l = m.lines[cy]
 	l.Action()
-
 }
 
 // EnableCursor enables a soft cursor in the TextArea.
