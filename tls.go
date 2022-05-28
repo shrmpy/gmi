@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"path/filepath"
 )
 import "golang.org/x/crypto/ssh"
 import kh "golang.org/x/crypto/ssh/knownhosts"
@@ -29,7 +28,7 @@ func dialGemini(ctx context.Context, capsule string, cert *x509.Certificate) (*t
 	if cert == nil {
 		return nil, fmt.Errorf("TLS error is not in recovery set.")
 	}
-	isv := newMask(ctx, maskISVKey)
+	isv := configMask(ctx)
 	knownCap := knownCapsules(ctx, capsule, cert, isv)
 
 	cfg := &tls.Config{InsecureSkipVerify: true,
@@ -71,14 +70,14 @@ func knownCapsules(ctx context.Context, capsule string, cert *x509.Certificate, 
 		return false
 	}
 	var err error
-	if err = searchKnown(cert, capsule, "known_capsules"); err == nil {
+	if err = searchKnown(ctx, capsule, cert); err == nil {
 		return true
 	}
 	if ke, ok := err.(*kh.KeyError); ok {
 		if len(ke.Want) != 0 {
 			return false
 		}
-		cpe := continueCapsulePrompt(ctx, capsule, cert, "known_capsules")
+		cpe := continueCapsulePrompt(ctx, capsule, cert)
 		if cpe == nil {
 			return true
 		}
@@ -86,14 +85,12 @@ func knownCapsules(ctx context.Context, capsule string, cert *x509.Certificate, 
 	}
 	return false
 }
-func continueCapsulePrompt(ctx context.Context, capsule string, cert *x509.Certificate, kcp string) error {
+func continueCapsulePrompt(ctx context.Context, capsule string, cert *x509.Certificate) error {
 	//TODO prompt TOFU callback
 	log.Printf("DEBUG TOFU prompt placeholder, PRETEND answer is Y for now")
 
-	abs, err := filepath.Abs(kcp)
-	if err != nil {
-		return fmt.Errorf("Capsule prompt failed path, %w", err)
-	}
+	abs := configKnowns(ctx)
+
 	sshpk, err := ssh.NewPublicKey(cert.PublicKey)
 	if err != nil {
 		return fmt.Errorf("Capsule prompt failed new key, %w", err)
@@ -112,18 +109,15 @@ func continueCapsulePrompt(ctx context.Context, capsule string, cert *x509.Certi
 
 	return nil
 }
-func searchKnown(cert *x509.Certificate, capsule string, kcp string) error {
+func searchKnown(ctx context.Context, capsule string, cert *x509.Certificate) error {
 	// known_hosts adapted as "known_capsules"
 	sshpk, err := ssh.NewPublicKey(cert.PublicKey)
 	if err != nil {
 		log.Printf("DEBUG crt to ssh key failed, %v", err)
 		return err
 	}
-	abs, err := filepath.Abs(kcp)
-	if err != nil {
-		log.Printf("DEBUG known_capsules path, %v", err)
-		return err
-	}
+	abs := configKnowns(ctx)
+
 	hostKeyCallback, err := kh.New(abs)
 	if err != nil {
 		log.Printf("DEBUG callback not created, %v", err)
@@ -173,8 +167,6 @@ func certFrom(err error) *x509.Certificate {
 	return nil
 }
 
-const maskISVKey = "InsecureSkipVerify"
-
 type Mask uint16
 
 const (
@@ -189,13 +181,20 @@ const (
 	PromptUAE
 	AcceptUAE
 )
+const maskISVKey = "InsecureSkipVerify"
 
-func newMask(ctx context.Context, key string) Mask {
+func configMask(ctx context.Context) Mask {
 	// extract bit flags carried by context
 	//todo sanity checks on ctx
-	test := ctx.Value(key).(Mask)
-	log.Printf("INFO ctx isv, %v", test)
-	return test
+	cfg := ctx.Value(maskISVKey).(Config)
+	return cfg.ISV()
 }
 func (m Mask) Set(flag Mask) Mask { return m | flag }
 func (m Mask) Has(flag Mask) bool { return m&flag != 0 }
+
+func configKnowns(ctx context.Context) string {
+	//todo sanity checks on ctx
+	cfg := ctx.Value(maskISVKey).(Config)
+	log.Printf("INFO config kh path, %v", cfg.KnownHosts())
+	return cfg.KnownHosts()
+}

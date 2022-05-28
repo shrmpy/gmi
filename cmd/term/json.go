@@ -12,11 +12,12 @@ import (
 )
 import "github.com/shrmpy/gmi"
 
-type Config struct {
+type argsCfg struct {
 	Title string
 
 	TLS struct {
 		MinimumVersion   string
+		KnownHosts       string
 		SelfSigned       gmi.Mask
 		LegacyCommonName gmi.Mask
 		Expired          gmi.Mask
@@ -31,7 +32,20 @@ type Config struct {
 	}
 }
 
-func maskFrom(cfg *Config) gmi.Mask {
+// gmCfg implements gmi.Config to pass settings to lib calls
+type geminiCfg struct {
+	args *argsCfg
+}
+
+func (g *geminiCfg) ISV() gmi.Mask {
+	// implements gmi.Config interface
+	return maskFrom(g.args)
+}
+func (g *geminiCfg) KnownHosts() string {
+	// implements gmi.Config interface
+	return safepath(g.args.TLS.KnownHosts)
+}
+func maskFrom(cfg *argsCfg) gmi.Mask {
 	var isv gmi.Mask
 	if cfg == nil {
 		log.Printf("INFO skipped isv, empty config")
@@ -58,47 +72,42 @@ func maskFrom(cfg *Config) gmi.Mask {
 
 	return isv
 }
-func readArgs() (*Config, error) {
+func readArgs() (*argsCfg, error) {
 	var (
 		err  error
-		cfg  *Config
-		abs  string
+		cfg  *argsCfg
+		wd   string
 		file *os.File
 		js   = flag.String("json", "config.json", "JSON file path")
 		lf   = flag.String("log", "", "Write log to file")
 	)
 	flag.Parse()
 	log.SetFlags(log.Lshortfile | log.Ltime)
-	if cfg, err = readConfig(*js); err == nil {
-		if *lf != "" {
-			if abs, err = filepath.Abs(*lf); err == nil {
-				if file, err = os.OpenFile(abs, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 644); err == nil {
-					cfg.Log.file = file
-					log.SetOutput(file)
-				}
-			}
+	if cfg, err = readConfig(*js); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return safeConfig(), nil
 		}
-
-		return cfg, nil
+		return nil, err
 	}
-	if errors.Is(err, fs.ErrNotExist) {
-		return safeConfig(), nil
+	if *lf != "" {
+		wd = safepath(*lf)
+		if file, err = os.OpenFile(wd, os.O_APPEND|os.O_CREATE, 644); err == nil {
+			cfg.Log.file = file
+			log.SetOutput(file)
+		}
 	}
-	return nil, err
+	return cfg, nil
 }
-
-func readConfig(filename string) (*Config, error) {
+func readConfig(filename string) (*argsCfg, error) {
 	var (
 		err  error
 		buf  []byte
-		abs  string
-		cfg  Config
+		wd   string
+		cfg  argsCfg
 		data map[string]interface{}
 	)
-	if abs, err = filepath.Abs(filename); err != nil {
-		return nil, err
-	}
-	if buf, err = os.ReadFile(abs); err != nil {
+	wd = safepath(filename)
+	if buf, err = os.ReadFile(wd); err != nil {
 		return nil, err
 	}
 	if err = json.Unmarshal(buf, &data); err != nil {
@@ -107,9 +116,10 @@ func readConfig(filename string) (*Config, error) {
 	cfg = hydrate(data)
 	return &cfg, nil
 }
-func safeConfig() *Config {
-	var c = Config{Title: "Safe defaults"}
+func safeConfig() *argsCfg {
+	var c = argsCfg{Title: "Safe defaults"}
 	c.TLS.MinimumVersion = "1.2"
+	c.TLS.KnownHosts = "known_capsules"
 	c.TLS.SelfSigned = gmi.PromptUAE
 	c.TLS.LegacyCommonName = gmi.AcceptLCN
 	c.TLS.Expired = gmi.CIEReject
@@ -118,8 +128,25 @@ func safeConfig() *Config {
 	c.Log.Level = "verbose"
 	return &c
 }
-func hydrate(data map[string]interface{}) Config {
-	var tmp = Config{Title: "empty"}
+func safepath(fpath string) string {
+	if filepath.IsAbs(fpath) {
+		return fpath
+	}
+	var err error
+	var wd string
+	if wd, err = os.UserHomeDir(); err == nil && wd != "" {
+		return filepath.Join(wd, fpath)
+	}
+	if wd = os.Getenv("SNAP_USER_DATA"); wd != "" {
+		return filepath.Join(wd, fpath)
+	}
+	if wd, err = filepath.Abs(fpath); err == nil {
+		return wd
+	}
+	return filepath.Join(os.TempDir(), fpath)
+}
+func hydrate(data map[string]interface{}) argsCfg {
+	var tmp = argsCfg{Title: "empty"}
 	if dtls, ok := data["tls"]; ok {
 		if mtls, ok := dtls.(map[string]interface{}); ok {
 			if ex, ok := mtls["expired"]; ok {
@@ -140,6 +167,11 @@ func hydrate(data map[string]interface{}) Config {
 			if mv, ok := mtls["minimum_version"]; ok {
 				if ver, ok := mv.(string); ok {
 					tmp.TLS.MinimumVersion = ver
+				}
+			}
+			if kh, ok := mtls["known_hosts"]; ok {
+				if khp, ok := kh.(string); ok {
+					tmp.TLS.KnownHosts = khp
 				}
 			}
 		}

@@ -11,7 +11,7 @@ Yet-another Gemini reader
 ```bash
 git clone https://github.com/shrmpy/gmi
 cd gmi && go build -o test cmd/term/*.go
-./test
+./test -json config.json -log debug.log
 ```
 ## Build in Local Container
 ```bash
@@ -40,12 +40,12 @@ lxc storage show default
 echo 'export SNAPCRAFT_BUILD_ENVIRONMENT=lxd' >> ~/.profile
 sudo reboot
 # retrieve YAML 
-git clone https://gitlab.com/shrmpy/gmi.git
+git clone https://github.com/shrmpy/gmi.git
 cd gmi
 # make snap 
 snapcraft
 # local install
-sudo snap install gmird_0.0.19_arm64.snap --dangerous
+sudo snap install gmird_0.0.20_arm64.snap --dangerous
 # start reader
 gmird.mobile
 ```

@@ -11,6 +11,7 @@
     "legacy_common_name": "AcceptLCN",
     "expired": "CIEReject",
     "self_signed": "PromptUAE",
-    "minimum_version": "1.2"
+    "minimum_version": "1.2",
+    "known_hosts": "known_capsules"
   }
 }

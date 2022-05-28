@@ -32,7 +32,7 @@ type container struct {
 	status *views.SimpleStyledTextBar
 	bag    *gembag
 	bus    chan signal
-	cfg    *Config
+	cfg    *argsCfg
 	views.Panel
 }
 
@@ -188,7 +188,7 @@ func main() {
 		Background(tcell.ColorBlack).
 		Foreground(tcell.ColorWhite))
 	title.SetCenter("reader", tcell.StyleDefault)
-	title.SetRight("gmit v0.0.19", tcell.StyleDefault)
+	title.SetRight("gmit v0.0.20", tcell.StyleDefault)
 
 	parent.gvw = NewGemView()
 

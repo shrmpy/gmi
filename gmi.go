@@ -40,14 +40,14 @@ func NewControl(ctx context.Context) *control {
 	return ctrl
 }
 
-func (c *control) Dial(u *url.URL, isv Mask) (*bufio.Reader, error) {
+func (c *control) Dial(u *url.URL, cfg Config) (*bufio.Reader, error) {
 	var (
 		err            error
 		status         int
 		responseHeader string
 	)
 	// encapsulate the key name from caller
-	cx := context.WithValue(c.ctx, maskISVKey, isv)
+	cx := context.WithValue(c.ctx, maskISVKey, cfg)
 	if c.conn, err = dialTLS(cx, u); err != nil {
 		return nil, fmt.Errorf("Failed to connect: %w", err)
 	}
@@ -88,7 +88,7 @@ func (c *control) Dial(u *url.URL, isv Mask) (*bufio.Reader, error) {
 		}
 		if lu, err := Format(meta, u.String()); err == nil {
 			c.preRedirect()
-			return c.Dial(lu, isv)
+			return c.Dial(lu, cfg)
 		}
 		return c.dialError("REDIR " + meta)
 	case 4, 5:
@@ -219,6 +219,11 @@ func (c *control) dialError(ar string, e ...error) (*bufio.Reader, error) {
 		return nil, fmt.Errorf(ar, e)
 	}
 	return nil, fmt.Errorf(ar)
+}
+
+type Config interface {
+	ISV() Mask
+	KnownHosts() string
 }
 
 // network state

@@ -11,7 +11,7 @@ import "github.com/hajimehoshi/ebiten/v2"
 type Game struct {
 	panel *Panel
 	bus   chan signal
-	cfg   *Config
+	cfg   *argsCfg
 }
 
 func (g *Game) Layout(w int, h int) (int, int) { return w, h }

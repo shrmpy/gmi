@@ -18,17 +18,17 @@ architectures:
   - build-on: armhf
 
 
-version: "0.0.19"
+version: "0.0.20"
 grade: stable
 
 apps:
   mobile:
     command: bin/desktop-launch $SNAP/bin/mobile
-    plugs: [network,x11,unity7,opengl,home]
+    plugs: [network,x11,unity7,opengl]
 
   term:
     command: bin/term
-    plugs: [network,home]
+    plugs: [network]
 
 parts:
   g-build:

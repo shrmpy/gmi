@@ -18,7 +18,8 @@ func (a *container) capsule(url string, referer string) {
 		a.status.SetRight(err.Error())
 		return
 	}
-	rdr, err := ctrl.Dial(req, maskFrom(a.cfg))
+	var gcf = &geminiCfg{args: a.cfg}
+	rdr, err := ctrl.Dial(req, gcf)
 	if err != nil {
 		a.status.SetRight(err.Error())
 		return
@@ -38,7 +39,7 @@ func (a *container) capsule(url string, referer string) {
 // define how to treat Gem links
 func (a *container) rewriteLink(n gmi.Node) string {
 	var (
-		lnk = n.(*gmi.LinkNode)
+		lnk  = n.(*gmi.LinkNode)
 		seq  = lnk.Position()
 		lu   = lnk.URL.String()
 		name = lnk.Friendly
