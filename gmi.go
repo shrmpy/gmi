@@ -40,7 +40,7 @@ func NewControl(ctx context.Context) *control {
 	return ctrl
 }
 
-func (c *control) Dial(u *url.URL, cfg Config) (*bufio.Reader, error) {
+func (c *control) Dial(u *url.URL, cfg Params) (*bufio.Reader, error) {
 	var (
 		err            error
 		status         int
@@ -221,7 +221,7 @@ func (c *control) dialError(ar string, e ...error) (*bufio.Reader, error) {
 	return nil, fmt.Errorf(ar)
 }
 
-type Config interface {
+type Params interface {
 	ISV() Mask
 	KnownHosts() string
 }

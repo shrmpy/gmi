@@ -26,9 +26,9 @@ func (g *Game) capsule(addr string) {
 		log.Printf("INFO URL format error, %v", err.Error())
 		return
 	}
-	var gcf = &geminiCfg{args: g.cfg}
+	var params = &geminiParams{args: g.cfg}
 	log.Printf("INFO Dial Gemini pod, %s", req.String())
-	if rdr, err = ctrl.Dial(req, gcf); err != nil {
+	if rdr, err = ctrl.Dial(req, params); err != nil {
 		log.Printf("INFO Dial error, %v", err.Error())
 		return
 	}

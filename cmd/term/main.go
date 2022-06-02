@@ -188,7 +188,7 @@ func main() {
 		Background(tcell.ColorBlack).
 		Foreground(tcell.ColorWhite))
 	title.SetCenter("reader", tcell.StyleDefault)
-	title.SetRight("gmit v0.0.20", tcell.StyleDefault)
+	title.SetRight("gmit v0.0.21", tcell.StyleDefault)
 
 	parent.gvw = NewGemView()
 

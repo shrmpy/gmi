@@ -1,44 +1,72 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
-	"bufio"
+	"io/fs"
 	"log"
-	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
 )
 import "github.com/shrmpy/gmi"
 
 func main() {
-	var cp = flag.String("cap", "gemini://gemini.circumlunar.space", "Capsule address")
+	var (
+		aer error
+		abs string
+		dir = flag.String("dir", "", "Work directory with Gem files")
+	)
 	flag.Parse()
 
-	var cfg = &config{}
-	var md = transform(*cp, cfg)
-	fmt.Println(md)
-}
-func transform(capsule string, cfg *config) string {
-	var (
-		err error
-		req *url.URL
-		rdr *bufio.Reader
-		md string
-	)
+	if abs, aer = filepath.Abs(*dir); aer != nil {
+		log.Fatalf("Unknown path, %v", aer)
+	}
+
 	var ctrl = gmi.NewControl(context.Background())
 	ctrl.Attach(gmi.GmLink, rewriteLink)
 	ctrl.Attach(gmi.GmPlain, rewritePlain)
-	if req, err = gmi.Format(capsule, ""); err != nil {
-		log.Fatalf("DEBUG Capsule URL, %v", err)
-	}
-	if rdr, err = ctrl.Dial(req, cfg); err != nil {
-		log.Fatalf("DEBUG Dial, %v", err)
-	}
-	defer ctrl.Close()
-	if md, err = ctrl.Retrieve(rdr); err != nil {
-		log.Fatalf("DEBUG Retrieve, %v", err)
-	}
-	return md
+	filepath.WalkDir(abs, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			log.Printf("INFO walk halted, %v", err)
+			return err
+		}
+		if d.IsDir() {
+			log.Printf("INFO dir, %s", d.Name())
+			return nil
+		}
+		if strings.ToLower(filepath.Ext(path)) != ".gmi" {
+			log.Printf("INFO non .gmi skipped, %s", d.Name())
+			return nil
+		}
+
+		file, fer := os.Open(path)
+		if fer != nil {
+			log.Printf("ERROR file, %v", fer)
+			return fer
+		}
+		defer file.Close()
+		log.Printf("INFO reading, %v", d.Name())
+		var rdr = bufio.NewReader(file)
+
+		md, wer := ctrl.Retrieve(rdr)
+		if wer != nil {
+			log.Printf("ERROR Retrieve, %v", wer)
+			return wer
+		}
+
+		var ofile = fmt.Sprintf("%s.md", strings.TrimSuffix(path, ".gmi"))
+		log.Printf("INFO writing, %s : %d", ofile, len(md))
+		var oerr = os.WriteFile(ofile, []byte(md), d.Type())
+		if oerr != nil {
+			log.Printf("ERROR output file, %v", oerr)
+			return oerr
+		}
+
+		return nil
+	})
 }
 func rewriteLink(n gmi.Node) string {
 	var lnk = n.(*gmi.LinkNode)
@@ -52,11 +80,4 @@ func rewriteLink(n gmi.Node) string {
 }
 func rewritePlain(n gmi.Node) string {
 	return fmt.Sprintf("%s\n", n)
-}
-type config struct {}
-func (c *config) ISV() gmi.Mask {
-	return gmi.AcceptUAE | gmi.AcceptLCN
-}
-func (c *config) KnownHosts() string {
-	return "known_capsules"
 }
