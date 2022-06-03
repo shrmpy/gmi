@@ -28,7 +28,7 @@ func dialGemini(ctx context.Context, capsule string, cert *x509.Certificate) (*t
 	if cert == nil {
 		return nil, fmt.Errorf("TLS error is not in recovery set.")
 	}
-	isv := configMask(ctx)
+	isv := paramMask(ctx)
 	knownCap := knownCapsules(ctx, capsule, cert, isv)
 
 	cfg := &tls.Config{InsecureSkipVerify: true,
@@ -66,7 +66,7 @@ func recoveryVerify(cs tls.ConnectionState, cert *x509.Certificate, isv Mask, kn
 	return err
 }
 func knownCapsules(ctx context.Context, capsule string, cert *x509.Certificate, isv Mask) bool {
-	if !isv.Has(PromptUAE) {
+	if isv.Not(PromptUAE) {
 		return false
 	}
 	var err error
@@ -89,7 +89,7 @@ func continueCapsulePrompt(ctx context.Context, capsule string, cert *x509.Certi
 	//TODO prompt TOFU callback
 	log.Printf("DEBUG TOFU prompt placeholder, PRETEND answer is Y for now")
 
-	abs := configKnowns(ctx)
+	abs := paramKnowns(ctx)
 
 	sshpk, err := ssh.NewPublicKey(cert.PublicKey)
 	if err != nil {
@@ -116,7 +116,7 @@ func searchKnown(ctx context.Context, capsule string, cert *x509.Certificate) er
 		log.Printf("DEBUG crt to ssh key failed, %v", err)
 		return err
 	}
-	abs := configKnowns(ctx)
+	abs := paramKnowns(ctx)
 
 	hostKeyCallback, err := kh.New(abs)
 	if err != nil {
@@ -183,18 +183,19 @@ const (
 )
 const maskISVKey = "InsecureSkipVerify"
 
-func configMask(ctx context.Context) Mask {
+func paramMask(ctx context.Context) Mask {
 	// extract bit flags carried by context
 	//todo sanity checks on ctx
-	cfg := ctx.Value(maskISVKey).(Config)
+	cfg := ctx.Value(maskISVKey).(Params)
 	return cfg.ISV()
 }
 func (m Mask) Set(flag Mask) Mask { return m | flag }
 func (m Mask) Has(flag Mask) bool { return m&flag != 0 }
+func (m Mask) Not(flag Mask) bool { return m&flag == 0 }
 
-func configKnowns(ctx context.Context) string {
+func paramKnowns(ctx context.Context) string {
 	//todo sanity checks on ctx
-	cfg := ctx.Value(maskISVKey).(Config)
+	cfg := ctx.Value(maskISVKey).(Params)
 	log.Printf("INFO config kh path, %v", cfg.KnownHosts())
 	return cfg.KnownHosts()
 }

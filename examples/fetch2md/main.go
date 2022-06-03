@@ -1,10 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
-	"bufio"
 	"log"
 	"net/url"
 )
@@ -23,11 +23,11 @@ func transform(capsule string, cfg *config) string {
 		err error
 		req *url.URL
 		rdr *bufio.Reader
-		md string
+		md  string
 	)
 	var ctrl = gmi.NewControl(context.Background())
-	ctrl.Attach(gmi.GmLink, rewriteLink)
-	ctrl.Attach(gmi.GmPlain, rewritePlain)
+	ctrl.Attach(gmi.LinkLine, rewriteLink)
+	ctrl.Attach(gmi.PlainLine, rewritePlain)
 	if req, err = gmi.Format(capsule, ""); err != nil {
 		log.Fatalf("DEBUG Capsule URL, %v", err)
 	}
@@ -53,7 +53,9 @@ func rewriteLink(n gmi.Node) string {
 func rewritePlain(n gmi.Node) string {
 	return fmt.Sprintf("%s\n", n)
 }
-type config struct {}
+
+type config struct{}
+
 func (c *config) ISV() gmi.Mask {
 	return gmi.AcceptUAE | gmi.AcceptLCN
 }

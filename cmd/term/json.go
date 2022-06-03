@@ -32,17 +32,17 @@ type argsCfg struct {
 	}
 }
 
-// gmCfg implements gmi.Config to pass settings to lib calls
-type geminiCfg struct {
+//  implements gmi.Params to pass settings to lib calls
+type geminiParams struct {
 	args *argsCfg
 }
 
-func (g *geminiCfg) ISV() gmi.Mask {
-	// implements gmi.Config interface
+func (g *geminiParams) ISV() gmi.Mask {
+	// implements gmi.Params interface
 	return maskFrom(g.args)
 }
-func (g *geminiCfg) KnownHosts() string {
-	// implements gmi.Config interface
+func (g *geminiParams) KnownHosts() string {
+	// implements gmi.Params interface
 	return safepath(g.args.TLS.KnownHosts)
 }
 func maskFrom(cfg *argsCfg) gmi.Mask {

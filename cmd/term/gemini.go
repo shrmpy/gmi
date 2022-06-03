@@ -10,16 +10,16 @@ import (
 func (a *container) capsule(url string, referer string) {
 	var ctrl = gmi.NewControl(context.Background())
 	// substitute our custom rules
-	ctrl.Attach(gmi.GmLink, a.rewriteLink)
-	ctrl.Attach(gmi.GmPlain, a.rewritePlain)
+	ctrl.Attach(gmi.LinkLine, a.rewriteLink)
+	ctrl.Attach(gmi.PlainLine, a.rewritePlain)
 
 	req, err := gmi.Format(url, referer)
 	if err != nil {
 		a.status.SetRight(err.Error())
 		return
 	}
-	var gcf = &geminiCfg{args: a.cfg}
-	rdr, err := ctrl.Dial(req, gcf)
+	var params = &geminiParams{args: a.cfg}
+	rdr, err := ctrl.Dial(req, params)
 	if err != nil {
 		a.status.SetRight(err.Error())
 		return

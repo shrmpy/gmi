@@ -22,7 +22,7 @@ type control struct {
 }
 type safemap struct {
 	sync.RWMutex
-	m map[string]*rewriter
+	m map[LineType]*rewriter
 }
 type rewriter struct {
 	fn func(Node) string
@@ -31,16 +31,16 @@ type rewriter struct {
 
 func NewControl(ctx context.Context) *control {
 	ctrl := &control{
-		rules: safemap{m: make(map[string]*rewriter)},
+		rules: safemap{m: make(map[LineType]*rewriter)},
 		ctx:   ctx,
 	}
 
-	ctrl.Attach(GmPlain, vanilla)
-	ctrl.Attach(GmLink, rewriteLink)
+	ctrl.Attach(PlainLine, vanilla)
+	ctrl.Attach(LinkLine, rewriteLink)
 	return ctrl
 }
 
-func (c *control) Dial(u *url.URL, cfg Config) (*bufio.Reader, error) {
+func (c *control) Dial(u *url.URL, cfg Params) (*bufio.Reader, error) {
 	var (
 		err            error
 		status         int
@@ -113,25 +113,38 @@ func metaHeader(parts []string) string {
 }
 
 // Gemtext op
+type LineType uint8
+
 const (
-	GmPlain   = "catchall"
-	GmLink    = "=>"
-	GmHeading = "#"
-	GmList    = "*"
-	GmBlock   = ">"
-	GmPrefmt  = "```"
+	PlainLine LineType = iota
+	LinkLine
+	HeadingLine
+	ListLine
+	BlockLine
+	PrefmtLine
 )
 
-func (c *control) Attach(op string, f func(Node) string) error {
+func (l LineType) String() string {
+	switch l {
+	case PlainLine:
+		return "catchall"
+	case LinkLine:
+		return "=>"
+	case HeadingLine:
+		return "#"
+	case ListLine:
+		return "*"
+	case BlockLine:
+		return ">"
+	case PrefmtLine:
+		return "```"
+	}
+	return ""
+}
+
+func (c *control) Attach(lt LineType, f func(Node) string) error {
 	c.rules.Lock()
 	defer c.rules.Unlock()
-
-	// enum may reduce this error condition
-	if op != GmLink && op != GmHeading && op != GmList &&
-		op != GmBlock && op != GmPrefmt && op != GmPlain {
-		return fmt.Errorf("Operation can only be =>, #, *, >, or ```")
-	}
-
 	/*
 		// TODO implement AttachOrChain if supporting many rewriters per op
 		if _, ok := c.rules.m[op]; ok {
@@ -139,7 +152,7 @@ func (c *control) Attach(op string, f func(Node) string) error {
 		}*/
 
 	var ch = make(chan Node)
-	c.rules.m[op] = &rewriter{fn: f, ch: ch}
+	c.rules.m[lt] = &rewriter{fn: f, ch: ch}
 
 	return nil
 }
@@ -174,12 +187,12 @@ func (c *control) Retrieve(r *bufio.Reader) (string, error) {
 	for _, no := range tree.Root.Nodes {
 		switch no.Type() {
 		case NodeLink:
-			if run, ok := c.rules.m[GmLink]; ok {
+			if run, ok := c.rules.m[LinkLine]; ok {
 				spawn(run.ch, run.fn, acc, grp)
 				run.ch <- no
 			}
 		default:
-			if run, ok := c.rules.m[GmPlain]; ok {
+			if run, ok := c.rules.m[PlainLine]; ok {
 				spawn(run.ch, run.fn, acc, grp)
 				run.ch <- no
 			}
@@ -221,7 +234,7 @@ func (c *control) dialError(ar string, e ...error) (*bufio.Reader, error) {
 	return nil, fmt.Errorf(ar)
 }
 
-type Config interface {
+type Params interface {
 	ISV() Mask
 	KnownHosts() string
 }
