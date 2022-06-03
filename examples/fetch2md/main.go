@@ -26,8 +26,8 @@ func transform(capsule string, cfg *config) string {
 		md  string
 	)
 	var ctrl = gmi.NewControl(context.Background())
-	ctrl.Attach(gmi.GmLink, rewriteLink)
-	ctrl.Attach(gmi.GmPlain, rewritePlain)
+	ctrl.Attach(gmi.LinkLine, rewriteLink)
+	ctrl.Attach(gmi.PlainLine, rewritePlain)
 	if req, err = gmi.Format(capsule, ""); err != nil {
 		log.Fatalf("DEBUG Capsule URL, %v", err)
 	}

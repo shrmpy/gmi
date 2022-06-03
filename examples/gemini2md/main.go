@@ -26,8 +26,8 @@ func main() {
 	}
 
 	var ctrl = gmi.NewControl(context.Background())
-	ctrl.Attach(gmi.GmLink, rewriteLink)
-	ctrl.Attach(gmi.GmPlain, rewritePlain)
+	ctrl.Attach(gmi.LinkLine, rewriteLink)
+	ctrl.Attach(gmi.PlainLine, rewritePlain)
 	filepath.WalkDir(abs, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			log.Printf("INFO walk halted, %v", err)

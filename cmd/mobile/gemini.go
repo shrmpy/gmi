@@ -19,8 +19,8 @@ func (g *Game) capsule(addr string) {
 	// avoid coupling gmi pkg to cfg struct
 	var ctrl = gmi.NewControl(ctx)
 	// substitute our customized rules
-	ctrl.Attach(gmi.GmLink, g.rewriteLink)
-	ctrl.Attach(gmi.GmPlain, g.rewritePlain)
+	ctrl.Attach(gmi.LinkLine, g.rewriteLink)
+	ctrl.Attach(gmi.PlainLine, g.rewritePlain)
 	log.Printf("INFO Format URL, %s", addr)
 	if req, err = gmi.Format(addr, string(g.panel.bar.text)); err != nil {
 		log.Printf("INFO URL format error, %v", err.Error())

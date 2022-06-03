@@ -45,7 +45,7 @@ cd gmi
 # make snap 
 snapcraft
 # local install
-sudo snap install gmird_0.0.22_arm64.snap --dangerous
+sudo snap install gmird_0.0.23_arm64.snap --dangerous
 # start reader
 gmird.mobile
 ```

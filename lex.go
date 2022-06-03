@@ -218,7 +218,7 @@ func lexPlain(l *lexer) stateFn {
 	offset = Pos(lf)
 	// line type is derived from first-three chars
 	row = l.input[l.pos : l.pos+offset]
-	if strings.HasPrefix(row, GmLink) {
+	if strings.HasPrefix(row, LinkLine.String()) {
 		return lexLeftLink
 	}
 	// plain text line
@@ -231,7 +231,7 @@ func lexPlain(l *lexer) stateFn {
 
 //=>[<whitespace>]<URL>[<whitespace><USER-FRIENDLY LINK NAME>]
 func lexLeftLink(l *lexer) stateFn {
-	l.pos += Pos(len(GmLink))
+	l.pos += Pos(len(LinkLine.String()))
 	l.emit(itemLink)
 	return lexLinkURL
 }
