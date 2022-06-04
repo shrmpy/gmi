@@ -4,7 +4,7 @@ Yet-another Gemini reader
 1. One program built in Tcell which runs in the terminal:
 ![remote ssh session](/cmd/term/tc01.png)
 
-2. Another built in Ebiten which hopefully becomes my Android app:
+2. Another built in Ebitengine which hopefully becomes my Android app:
 ![mobile 360x640](/cmd/mobile/eb03.png) 
 
 ## Quickstart
@@ -45,7 +45,7 @@ cd gmi
 # make snap 
 snapcraft
 # local install
-sudo snap install gmird_0.0.23_arm64.snap --dangerous
+sudo snap install gmird_0.0.24_arm64.snap --dangerous
 # start reader
 gmird.mobile
 ```
@@ -62,7 +62,7 @@ min Gemini browser
 
 Tcell by [Garrett D'Amore](https://github.com/gdamore/tcell/) ([LICENSE](https://github.com/gdamore/tcell/blob/master/LICENSE))
 
-Ebiten by [Hajime Hoshi](https://github.com/hajimehoshi/ebiten/) ([LICENSE](https://github.com/hajimehoshi/ebiten/blob/main/LICENSE))
+Ebitengine by [Hajime Hoshi](https://github.com/hajimehoshi/ebiten/) ([LICENSE](https://github.com/hajimehoshi/ebiten/blob/main/LICENSE))
 
 Lexical Scanning in Go
  by [Rob Pike](https://go.dev/blog/sydney-gtug)
